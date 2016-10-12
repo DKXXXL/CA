@@ -249,4 +249,347 @@ Proof.
         intro;assumption.
         intro;elim h1;assumption.
 Qed.
+Theorem ex_imp_ex :
+        forall (A:Type) (P Q : A -> Prop), (ex P) -> (forall x : A, P x -> Q x) ->(ex Q).
+Proof.
+        intros A P Q h1 h2.
+        elim h1.
+        intros a h3.
+        apply (ex_intro) with (x := a).
+        apply h2;assumption.
+Qed.
+
+Section vp9.
+        Variable A:Set.
+        Variable (P Q : A -> Prop).
+Theorem vp91:
+        (exists x:A, P x \/ Q x) -> (ex P) \/ (ex Q).
+Proof.
+        intros h1.
+        elim h1.
+        intros a h2.
+        elim h2.
+        intro h3;left;exists a;assumption.
+        intro h3;right;exists a;assumption.
+Qed.
+
+Theorem vp92:
+        (ex P)\/(ex Q) -> exists x : A, P x \/ Q x.
+Proof.
+        intro h1.
+        elim h1.
+        intro h2;elim h2;intros a h3;exists a;left;assumption.
+        intro h2;elim h2;intros a h3;exists a;right;assumption.
+Qed.
+
+Theorem vp93:
+        (exists x:A, (forall R:A -> Prop, R x)) -> 2 = 3.
+Proof.
+        intros h1.
+        elim h1.
+        intros a h2.
+        assert False.
+        apply (h2 (fun (a:A) => False)).
+        elim H.
+Qed.
+
+Theorem vp94:
+        (forall x: A, P x) -> ~(exists y:A, ~ P y).
+Proof.
+        unfold not.
+        intros h1 h2.
+        elim h2.
+        intros a h3.
+        apply h3;apply h1.
+Qed.
+
+
+End vp9.
+
+Require Import Arith.
+
+Theorem plus_permute2:
+        forall n m p: nat, n + m + p = n + p + m.
+Proof.
+        intros n m p.
+        rewrite <- plus_assoc.
+        pattern (m+p) at 1.
+        rewrite -> plus_comm.
+        rewrite -> plus_assoc.
+        reflexivity.
+Qed.
+
+Theorem vp11:
+        forall (A:Type)(x y z : A), x = y -> y = z -> x = z.
+Proof.
+        intros A x y z h1 h2.
+        rewrite -> h1; rewrite -> h2;reflexivity.
+Qed.
+
+Definition my_True: Prop :=
+        forall P : Prop, P -> P.
+
+Definition my_I : my_True :=
+        fun (P : Prop) (a : P) => a.
+
+Definition my_False : Prop :=
+        forall P : Prop, P.
+
+Definition my_False_ind : 
+        forall P : Prop, my_False -> P :=
+        fun (P : Prop) (a : my_False) => (a P).
+
+
+Definition my_not (P:Prop) : Prop := P -> my_False.
+
+Section vp13.
+Theorem vp131: my_not(my_False).
+Proof.
+        unfold my_not.
+        intro;assumption.
+Qed.
+
+Theorem vp132 :forall P: Prop, my_not(my_not(my_not(P))) -> my_not(P).
+Proof.
+        unfold my_not.
+        intros P h1 p.
+        apply h1.
+        intro h2.
+        apply h2;assumption.
+Qed.
+
+Theorem vp133:
+        forall P Q:Prop, my_not(my_not(my_not(P))) -> P -> Q.
+Proof.
+        unfold my_not.
+        intros P Q h1 p.
+        assert (h0: my_False).
+        apply h1.
+        intros h2;apply h2;assumption.
+        apply (h0 Q).
+Qed.
+
+Theorem vp134:
+        forall P Q : Prop, (P -> Q) -> my_not (Q) -> my_not (P).
+Proof.
+        unfold my_not.
+        intros P Q h1 h2 p.
+        apply h2;apply h1;assumption.
+Qed.
+
+Theorem vp135:
+        forall P Q R:Prop, (P -> Q) -> (P -> my_not(Q)) -> P -> R.
+Proof.
+        unfold my_not.
+        intros P Q R h1 h2 p.
+        assert (h0: my_False).
+        apply h2;[assumption|apply h1;assumption].
+        apply (h0 R).
+Qed.
+
+Section leibniz.
+Set Implicit Arguments.
+Unset Strict Implicit.
+Variable A:Set.
+
+Definition leibniz (a b : A) : Prop :=
+        forall P : A -> Prop, P a -> P b.
+
+Require Import Relations.
+
+Theorem leibniz_sym : symmetric A leibniz.
+Proof.
+        unfold symmetric.
+        intros x y h1.
+        assert (h0: leibniz x x).
+        unfold leibniz;intros;assumption.
+        apply (h1 _ h0).
+        assumption.
+Qed.
+
+Theorem leibniz_refl : reflexive A leibniz.
+Proof.
+        unfold reflexive.
+        unfold leibniz; intros;assumption.
+Qed.
+
+Theorem leibniz_trans : transitive A leibniz.
+Proof.
+        unfold transitive.
+        intros x y z h1 h2.
+        apply h2;assumption.
+Qed.
+
+Theorem leibniz_equiv : equiv A leibniz.
+Proof.
+        unfold equiv.
+        split.
+        apply leibniz_refl.
+        split;[apply leibniz_trans|apply leibniz_sym].    
+Qed.
+
+Theorem leibniz_least_reflexive :
+        forall R: relation A, reflexive A R -> inclusion A leibniz R.
+Proof.
+        unfold inclusion.
+        intros R h1 x y h2.
+        apply h2.
+        apply h1.
+Qed.
+
+Theorem leibniz_eq :
+        forall a b : A, leibniz a b -> a = b.
+Proof.
+        intros a b h1.
+        apply h1.
+        reflexivity.
+Qed.
+
+Theorem eq_leibniz_ind :
+        forall a b : A, a = b -> leibniz a b.
+Proof.
+        intros a b h1;rewrite <- h1;apply leibniz_refl.
+Qed.
+
+Theorem leibniz_ind :
+        forall (x : A) ( P : A -> Prop) , P x -> forall y : A, leibniz x y -> P y.
+Proof.
+        intros a P h1 y h2.
+        apply h2.
+        apply h1.
+Qed.
+
+Unset Implicit Arguments.
+End leibniz.
+
+Definition my_and (P Q:Prop) :=
+        forall R:Prop, (P -> Q -> R) -> R.
+
+Definition my_or (P Q:Prop) :=
+        forall R:Prop, (P -> R) -> (Q -> R) -> R.
+
+Definition my_ex (A:Set) (P : A -> Prop) :=
+        forall R:Prop, (forall a:A, P a -> R) -> R.
+
+Theorem vp151:
+        forall P Q:Prop, my_and P Q -> P.
+Proof.
+        intros P Q h1.
+        apply h1.
+        intros;assumption.
+Qed.
+
+Theorem vp152:
+        forall P Q:Prop, my_and P Q -> Q.
+Proof.
+        intros P Q h1;apply h1;intros;assumption.
+Qed.
+
+Theorem vp153:
+        forall P Q R:Prop, (P -> Q -> R) -> my_and P Q -> R.
+
+Proof.
+        intros P Q R h1 h2.
+        apply h1.
+        apply h2;intros;assumption.
+        apply h2;intros;assumption.
+Qed.
+
+Theorem vp154:
+        forall P Q:Prop, P -> my_or P Q.
+
+Proof.
+        intros P Q p.
+        unfold my_or.
+        intros R h1 h2;apply h1;assumption.
+Qed.
+
+Theorem vp155:
+        forall P Q:Prop, Q -> my_or P Q.
+Proof.
+        unfold my_or.
+        intros P Q q R h1 h2.
+        apply h2;assumption.
+Qed.
+
+Theorem vp156:
+        forall P Q R:Prop, (P -> R) -> (Q -> R) -> my_or P Q -> R.
+
+Proof.
+        intros P Q R h1 h2.
+        unfold my_or.
+        intros h3.
+        apply h3;assumption.
+Qed.
+
+Theorem vp158:
+        forall P Q:Prop, my_or P Q -> my_or Q P.
+Proof.
+        unfold my_or;intros P Q h1.
+        intros R h3 h2;apply h1;assumption.
+Qed.
+
+Theorem vp157:
+        forall P:Prop,my_or P my_False -> P.
+Proof.
+        unfold my_or;intros P h1;apply h1;intros.
+        assumption.
+        apply (H P).
+Qed.
+
+Theorem vp159:
+       forall (A:Set) (P: A -> Prop) (a : A), P a -> my_ex A P.
+Proof.
+        intros A P a h1.
+        unfold my_ex.
+        intros R h2.
+        apply h2 with (a:=a).
+        assumption.
+Qed.
+
+Theorem vp1510:
+        forall (A:Set) (P:A->Prop),
+                my_not (my_ex A P) -> forall a: A, my_not (P a).
+Proof.
+        unfold my_not.
+        unfold my_ex.
+        intros A P h1 h2 h3.
+        apply h1.
+        intros R h4.
+        apply h4 with (a:=h2).
+        assumption.
+Qed.
+
+Definition my_le (n p :nat):=
+        forall P: nat -> Prop, P n -> (forall q: nat, P q -> P (S q)) -> P p.
+
+Lemma my_le_n :
+        forall n:nat ,my_le n n.
+Proof.
+        intros n.
+        unfold my_le.
+        intros P h1 h2.
+        assumption.
+Qed.
+
+Lemma my_le_S :
+        forall n p : nat , my_le n p -> my_le n (S p).
+Proof.
+        unfold my_le.
+        intros n p h1 P h2 h3.
+        apply h3.
+        apply h1.
+        assumption.
+        assumption.
+Qed.
+
+Lemma my_le_le :
+        forall n p : nat, my_le n p -> n <= p.
+Proof.
+        intros n p h1.
+        apply h1.
+        reflexivity.
+        apply le_S.
+Qed.
+
 
