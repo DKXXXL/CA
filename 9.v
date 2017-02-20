@@ -295,6 +295,227 @@ elim n. try tauto; omega.
 intros. elim H. intros. split; try auto. change(fib (S n0) + fib n0 = fib' (S (S n0))). unfold fib' in H1. simpl fib''' in H1.  rewrite -> H0. rewrite -> H1. unfold fib'. simpl. destruct n0. simpl; trivial. destruct n0. simpl; trivial. apply fib'''_transform.
 Qed.
 
+Open Scope Z_scope.
+
+Fixpoint div_bin (n m : positive) {struct n}: Z*Z :=
+  match n with
+    | 1%positive => match m with 1%positive => (1, 0) | v => (0, 1) end
+    | xO n' => let (q', r') := div_bin n' m in
+               match Z_lt_ge_dec (2*r') (Zpos m) with
+                 | left Hlt => (2*q', 2*r')
+                 | right Hge => (2*q' + 1, 2*r' - (Zpos m))
+               end
+    | xI n' => let (q', r') := div_bin n' m in
+               match Z_lt_ge_dec (2*r' + 1) (Zpos m) with
+                 | left Hlt => ((2*q') %Z, 2*r'+1)
+                 | right Hge => (2*q'+1, (2*r' + 1) - Zpos m)
+               end
+  end.
+
+Theorem div_bin_th:
+  forall (n m : positive) (q r :Z), Zpos m <> 0 -> div_bin n m = (q, r) -> Zpos n = q * (Zpos m) + r /\ 0 <= r < (Zpos m).
+Proof.
+Abort.
 
 
+Theorem rem_1_1_interval : 0 <= 0 < 1.
+Proof.
+  omega.
+Qed.
+
+Theorem rem_1_even_interval :
+  forall m:positive, 0 <= 1 < Zpos (xO m).
+  intros.
+  Locate "_ < _".
+  Print Z.lt.
+  compute. split;[discriminate | trivial].
+Qed.
+
+Theorem rem_1_odd_interval :
+  forall m:positive, 0 <= 1 < Zpos (xI m).
+  intros.
+  compute.
+  split;[intro; discriminate | trivial].
+Qed.
+
+Theorem rem_even_ge_interval :
+  forall (m r:Z), 0<= r <m -> 2*r >= m -> 0 <= 2*r - m < m.
+  intros.
+  omega.
+Qed.
+
+
+Theorem rem_even_lt_interval :
+  forall m r : Z, 0 <= r < m -> 2*r < m -> 0 <= 2*r < m.
+  intros.
+  omega.
+Qed.
+
+Theorem rem_odd_ge_interval :
+  forall m r:Z, 0 <= r < m -> 2*r + 1 >= m -> 2*r + 1 - m < m.
+  intros.
+  omega.
+Qed.
+
+Theorem rem_odd_lt_interval:
+  forall m r:Z, 0 <= r < m -> 2*r + 1 < m -> 0 <= 2*r + 1 < m.
+  intros.
+  omega.
+Qed.
+
+Hint Resolve rem_odd_ge_interval rem_even_ge_interval rem_odd_lt_interval rem_even_lt_interval rem_1_odd_interval rem_1_even_interval rem_1_1_interval.
+
+
+Ltac div_bin_tac arg1 arg2 :=
+  elim arg1;
+  [intros p; lazy beta iota delta [div_bin]; fold div_bin ;
+   case (div_bin p arg2); unfold snd; intros q' r' Hrec;
+   case (Z_lt_ge_dec (2*r' + 1) (Zpos arg2)); intros H
+  | intros p; lazy beta iota delta [div_bin]; fold div_bin;
+    case (div_bin p arg2); unfold snd; intros q' r' Hrec;
+    case (Z_lt_ge_dec (2*r') (Zpos arg2)); intros H
+  | case arg2; lazy beta iota delta [div_bin]; intros].
+
+Theorem div_bin_rem_lt :
+  forall n m :positive, 0<= snd(div_bin n m) < Zpos m.
+  intros n m; div_bin_tac n m; unfold snd; auto.
+  omega.
+Qed.
+
+
+Inductive div_data (n m :positive) : Set :=
+  div_data_def :
+    forall (q r:Z), Zpos n = q*(Zpos m) + r -> 0 <= r < Zpos m -> div_data n m.
+
+
+Require Import ZArith.
+
+Lemma posAlwaysGE1:
+  forall x:positive, Zpos x >= 1.
+  intros x.
+  elim x.
+intros; rewrite Zpos_xI.
+omega.
+intros; rewrite Zpos_xO.
+omega.
+omega.
+Qed.
+Definition div_bin2: forall n m:positive, div_data n m.
+  intros n. elim n.
+  intros p h. intro m. elim (h m).  intros.
+  case (Z_lt_ge_dec (2*r + 1) (Zpos m)). intros.
+  exists (2*q) (2*r + 1). rewrite Zpos_xI. rewrite e. ring.
+  auto.
+  intros. assert (0<= 2*(r) + 1 - (Z.pos m) < ( Z.pos m)). omega.
+  exists (2*q+1) (2*r+1-(Z.pos m)).
+  rewrite Zpos_xI. rewrite e. ring. auto.
+  intros p h m. elim (h m). intros.
+  case (Z_lt_ge_dec (2*r) (Zpos m)). intros. exists (2*q) (2*r).
+  rewrite Zpos_xO. rewrite e. ring. auto.
+  intros. assert (0 <= 2*r - (Zpos m) < (Zpos m)). omega.
+  exists (2*q + 1) (2*r - (Zpos m)). rewrite Zpos_xO. rewrite e. ring. auto.
+  intros. case (Z_le_gt_dec (Zpos m) 1). intros. assert (Zpos m = 1). pose (posAlwaysGE1 m). omega.
+  exists 1 0. rewrite H. omega. omega.
+  intros. exists 0 1. omega. omega.
+Qed.
+
+Definition div_bin3 :
+  forall n m : positive, div_data n m.
+  refine
+    ((fix div_bin3 (n: positive) : forall m: positive, div_data n m :=
+        fun m =>
+          match n return div_data n m with
+            | 1%positive =>
+              match m return div_data 1 m with
+                | 1%positive => div_data_def 1 1 1 0 _ _
+                | xO p => div_data_def 1 (xO p) 0 1 _ _
+                | xI p => div_data_def 1 (xI p) 0 1 _ _
+              end
+            | xO p =>
+              match div_bin3 p m with
+                |(div_data_def q' r' _ _ ) =>
+                 match (Z_lt_ge_dec (2*r') (Zpos m)) with
+                   | left Hlt => div_data_def (xO p) m (2*q') (2*r') _ _
+                   | right Hge => div_data_def (xO p) m (2*q' + 1) (2*r' - (Zpos m)) _ _
+                 end
+              end
+            | xI p =>
+              match div_bin3 p m with
+                |(div_data_def q' r' _ _) =>
+                 match (Z_lt_ge_dec (2*r' + 1) (Zpos m)) with
+                   | left Hlt => div_data_def (xI p) m (2*q') (2*r' + 1) _ _
+                   | right Hge => div_data_def (xI p) m (2*q' + 1) (2*r' + 1 - (Zpos m)) _ _
+                 end
+              end
+          end));
+  (try (((try rewrite Zpos_xI);(try rewrite Zpos_xO)); rewrite e; ring; omega)).
+  omega. omega. omega. omega. omega.  rewrite Zpos_xI. pose (posAlwaysGE1 p). omega. omega.
+  rewrite Zpos_xO. pose (posAlwaysGE1 p). omega. omega. omega.
+Qed.
+
+Inductive sqr_data (n:positive) : Z -> Set :=
+  sqr_def : forall (m r:Z), (Zpos n) = m*m + r /\ m*m < Zpos n <(m+1) * (m+1) -> sqr_data n m.
+
+Locate "{ x | P }".
+Print existT.
+
+Definition sqr_bin :
+  forall p:positive,
+    {s:Z & {r:Z | Zpos p = s*s + r /\ s*s <= Zpos p < (s + 1) * (s+1)}}.
+  refine (fix sqr_bin (p:positive) : {s:Z & {r:Z | Zpos p = s*s + r /\ s*s <= Zpos p < (s+1)*(s+1)}} :=
+            match p with
+              | 1%positive => existS _ 1 (exist _ 0 _)
+              | 2%positive => existS _ 1 (exist _ 1 _)
+              | 3%positive => existS _ 1 (exist _ 2 _)
+              | xO (xO p') =>
+                match (sqr_bin p') with
+                  | existS s (exist r _) =>
+                    match (Z_lt_ge_dec (4*r) (4*s + 1)) with
+                      | left Hlt => existS  _ (2*s) (exist  _ (4*r) _)
+                      | right Hge => existS  _ (2*s + 1) (exist  _ (4*r - (4*s + 1)) _)
+                    end
+                end
+              | xI (xO p') =>
+                match (sqr_bin p') with
+                  | existS s (exist r _) =>
+                    match (Z_lt_ge_dec (4*r + 1) (4*s + 1)) with
+                      | left Hlt => existS _ (2*s) (exist  _ (4*r + 1) _)
+                      | right Hge => existS _ (2*s + 1) (exist _ (4*r + 1 - (4*s + 1)) _)
+                    end
+                end
+              | xO (xI p') =>
+                match (sqr_bin p') with
+                  | existS s (exist r _) =>
+                    match (Z_lt_ge_dec (4*r + 2) (4*s + 1)) with
+                      | left Hlt => existS  _ (2*s) (exist  _ (4*r + 2) _)
+                      | right Hge => existS  _ (2*s+ 1) (exist  _ (4*r +2 - (4*s + 1)) _ )
+                    end
+                end
+              | xI (xI p') =>
+                match sqr_bin p' with
+                  | existS s (exist r _) =>
+                    match (Z_lt_ge_dec (4*r + 3) (4*s + 1)) with
+                      | left Hlt => existS _ (2*s) (exist _ (4*r + 3) _ )
+                      | right Hge => existS _ (2*s + 1) (exist _ (4*r + 3 - (4*s + 1)) _)
+                    end
+                end
+            end).
+
+  split. rewrite Zpos_xI. rewrite Zpos_xI. elim a. intros. rewrite H. ring.
+  rewrite Zpos_xI; rewrite Zpos_xI. elim a. intros. rewrite H. rewrite H in H0.
+  assert (4*s*s <= 4*s*s + 4*r + 3 < 4*s*s + 4*s + 1). omega.
+  assert (2*s*(2*s) = 4*s*s). ring.
+  assert (2*(2*(s*s+r) + 1) + 1 = 4*s*s + 4*r + 3). ring.
+  assert ((2*s + 1)*(2*s+1) = 4*s*s + 4*s + 1). ring.
+  rewrite H2; rewrite H3; rewrite H4. auto.
+  repeat (rewrite Zpos_xI). elim a. intros. rewrite H. split; try ring; try omega.
+  rewrite H in H0.
+  assert ((2*s+1)*(2*s+1) = 4*s*s + 4*s + 1). ring.
+  assert ((2*(2*(s*s+r) + 1) + 1 = 4*s*s + 4*r + 3)). ring.
+  assert ((2*s + 1 + 1) * (2*s + 1 + 1) = 4*s*s + 8*s + 4). ring.
+  rewrite H1; rewrite H2; rewrite H3. 
+  assert ((s+1) * (s+1) = s*s + 2*s + 1). ring.
+  rewrite H4 in H0. assert (4*r <= 8*s). omega.
+  omega.
+Abort.
 
