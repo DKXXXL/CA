@@ -295,4 +295,117 @@ Qed.
     rewrite Heq. eauto with searchtrees.
   Qed.
 
+
+  Inductive RMAX (t t' : Z_btree) (n:Z) :Prop :=
+    rmax_intro :
+      occ n t ->
+      (forall p:Z, occ p t -> p <= n) ->
+      (forall q:Z, occ q t' -> occ q t) ->
+      (forall q:Z, occ q t -> occ q t' \/ n = q) ->
+      ~occ n t' -> search_tree t' -> RMAX t t' n.
+
+  Definition rmax_sig (t:Z_btree) (q:Z):=
+    {t' : Z_btree | RMAX t t' q}.
+
+
+
+  Import List.
+
+
+
+  Definition list2tree_spec (l:list Z) : Set :=
+    {t' : Z_btree | search_tree t' /\ (forall p :Z, In p l <-> occ p t')}.
+
+  Definition list2tree_aux_spec (l:list Z) (t:Z_btree) :=
+    search_tree t ->
+    {t' :Z_btree | search_tree t' /\
+                   (forall p:Z, In p l \/ occ p t <-> occ p t')}.
+
+
+
+  Definition list2tree_aux:
+    forall (l:list Z) (t:Z_btree), list2tree_aux_spec l t.
+
+    refine
+      (fix list2tree_aux (l:list Z) :
+         forall t :Z_btree, list2tree_aux_spec l t :=
+         fun t =>
+           match l return list2tree_aux_spec l t with
+             | nil => fun s =>  exist _ t _
+             | cons p l' =>
+               fun s =>
+                 match insert_bst p t s with
+                   | exist t' _ =>
+                     match list2tree_aux l' t' _ with
+                       | exist t'' _ => exist _ t'' _
+                     end
+                 end
+           end).
+    split; try tauto.
+    split; intros. elim H. intros h; elim h. trivial.
+    right; trivial.
+    elim i. intros; auto.
+    split. elim a; auto.
+    elim a. split; intros.
+    elim H1. intros; apply H0. elim H2. intros; right. elim i. rewrite H3; auto.
+    tauto.
+    elim i. intros. apply H0. right; apply H2; auto.
+    case (Z_eq_dec p0 p). intros hh; left; rewrite hh; simpl; trivial.
+    left; trivial.
+    intros. elim (H0 p0). intros. elim (H3 H1). intros. left; simpl; right; auto. elim i. intros. elim (H6 p0 H8); try tauto. intros h; rewrite h in n; elim (n (eq_refl p0)).
+  Defined.
+
+ 
+    
+  
+  
+  Definition list2tree_aux_2 :
+    forall (l:list Z) (t:Z_btree), list2tree_aux_spec l t.
+
+    refine
+      (fix list2tree_aux (l:list Z)  :=
+         fun t =>
+           
+           match l return list2tree_aux_spec l t with
+             | nil => fun s => exist _ t _
+             | cons x l' =>
+               fun Hst =>
+                 match insert_bst x t _ with
+                   | exist t' Hins =>
+                     match list2tree_aux l' t' _ with
+                       | exist rett Hret => exist _ rett _
+                     end
+                 end
+           end); eauto with searchtrees.
+    split; try auto.
+    intros; split. intros.
+    elim H.
+    intros h; elim h.
+    trivial.
+    intros; right; auto.
+    elim Hins. intros; auto.
+    split.
+    elim Hret; auto.
+    elim Hret; split; intros.
+    apply (H0 p). elim H1. intros. simpl in H2. elim H2. elim Hins. intros. rewrite <- H7; right; auto.
+    tauto.
+    elim Hins. intros. right; apply (H2 p H6).
+    elim (H0 p). intros. elim (H3 H1). intros; left; simpl; right;auto.
+    elim Hins. intros. elim (H6 p H8). intros; try tauto.
+    intros h; rewrite h; simpl; try tauto.
+  Defined.
+
+  Definition list2tree:
+    forall l:list Z, list2tree_spec l.
+    refine
+      (fun (l:list Z) =>
+         match (list2tree_aux_2 l Z_leaf _) return list2tree_spec l with
+           | exist t h => exist _ t _
+         end); eauto with searchtrees.
+    apply leaf_search_tree.
+    elim h. split; try tauto.
+    intros. elim (H0 p). intros. split. intros; try tauto.
+    intros h1; elim (H2 h1); try auto. intro. pose (not_occ_leaf). unfold not in n. elim (n p H3).
+  Defined.
+
   
