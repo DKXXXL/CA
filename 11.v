@@ -408,4 +408,15 @@ Qed.
     intros h1; elim (H2 h1); try auto. intro. pose (not_occ_leaf). unfold not in n. elim (n p H3).
   Defined.
 
+
+  Theorem naive_occ_dec_re:
+    forall (n:Z) (t:Z_btree), {occ n t}+ {~occ n t}.
+    intros. elim t. right; apply not_occ_leaf.
+    intros. elim H. intros; left. apply occ_left; trivial.
+    elim H0. intros; left; apply occ_right; trivial.
+    case (Z_eq_dec n z).
+    intros h; intros; left; rewrite  h; apply occ_root.
+    intros. right. unfold not; intros. inversion H1.
+  Abort.
+
   
